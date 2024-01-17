@@ -9,7 +9,8 @@ class WavToLogMelSpectogramDataset(torch.utils.data.Dataset):
     def __init__(self, cfg, audio_files, labels, audio_dir='', cache=True):
         self.audio_files = audio_files
         self.audio_dir = audio_dir
-        self.labels = labels
+        label_to_idx = {label:i for i, label in enumerate(set(labels))}
+        self.labels = [label_to_idx[label] for label in labels] 
         self.to_melspec = nnAudio.features.MelSpectrogram(
             sr=cfg.sample_rate,
             n_fft=cfg.n_fft,
@@ -36,6 +37,9 @@ class WavToLogMelSpectogramDataset(torch.utils.data.Dataset):
             lmss.append(lms)
         X = torch.cat(lmss, dim=1)
         return [X.mean().item(), X.std().item()]
+
+    def get_labels(self):
+        return self.labels.copy()
 
     def __getitem__(self, idx):
         if self.cache and self.cached_spectograms[idx] is not None:

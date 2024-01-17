@@ -18,7 +18,7 @@ def get_byola_cfg():
 def get_normalizer(dataset_stats):
     return PrecomputedNorm(dataset_stats)
 
-def get_frozen_pretrained_byola(dataset_stats):
+def get_frozen_pretrained_byola(dataset_stats, device):
     pretrained_byola = AudioNTT2022(d=byola_cfg.feature_d, n_mels=byola_cfg.n_mels)
     load_pretrained_weights(
         pretrained_byola, 
@@ -30,5 +30,6 @@ def get_frozen_pretrained_byola(dataset_stats):
         param.requires_grad = False
 
     normalizer = get_normalizer(dataset_stats)
+    pretrained_byola.to(device)
 
     return lambda data: pretrained_byola(normalizer(data))
