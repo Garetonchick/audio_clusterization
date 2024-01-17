@@ -146,7 +146,7 @@ def load_config(path):
     with open(path) as f:
         return json.load(f)
 
-if __name__ == "__main__":
+def main():
     torch.manual_seed(4444)
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     cfg = load_config('cfg.json')
@@ -177,3 +177,6 @@ if __name__ == "__main__":
         dataset=dataset,
         device=device
     )
+
+if __name__ == "__main__":
+    main()
