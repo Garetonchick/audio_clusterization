@@ -151,7 +151,7 @@ def main():
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     cfg = load_config('cfg.json')
     print("Start")
-    dataset = dcase5.get_dataset('smol_dcase')
+    dataset = dcase5.get_dataset(cfg['data_dir'])
     print("Loaded dataset")
     dataloader = DataLoader(dataset, batch_size=cfg['batch_size'], shuffle=True, drop_last=True) 
     byola_model = byol_a.get_frozen_pretrained_byola(dataset.calc_norm_stats(), device=device)
