@@ -1,2 +1,5 @@
 .vscode
 venv
+dcase
+smol_dcase
+__pycache__
