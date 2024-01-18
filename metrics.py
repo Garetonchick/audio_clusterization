@@ -3,6 +3,12 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import normalized_mutual_info_score
 
+def standartify_clusters(clusters):
+    standartified = clusters.copy()
+    for i, val in enumerate(np.unique(clusters)):
+        standartified[clusters == val] = i
+    return standartified
+
 def nmi_geom(y_true, y_pred):
     return normalized_mutual_info_score(y_true, y_pred, average_method='geometric')
 

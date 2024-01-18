@@ -32,7 +32,7 @@ def e_step(encoder, head, batch, aug, device):
 
     indices = torch.topk(sims, n_conf_samples, dim=1, largest=False).indices.view(-1)
     # features_s = features[indices]
-    proto_labels = torch.transpose(torch.arange(0, K).repeat(n_conf_samples, 1), 0, 1).flatten()
+    proto_labels = torch.transpose(torch.arange(0, K).repeat(n_conf_samples, 1), 0, 1).flatten().to(device)
 
     return batch[indices], proto_labels
 
@@ -120,13 +120,13 @@ def train_2nd_stage(
 def test(encoder, head, dataset, device):
     head.eval()
     head.to(device)
-    pseudo_labels = predict_pseudo_labels(encoder, head, dataset, device=device)
+    pseudo_labels = metrics.standartify_clusters(np.array(predict_pseudo_labels(encoder, head, dataset, device=device)))
     labels = dataset.get_labels()
     nmi = metrics.nmi_geom(labels, pseudo_labels)
     acc = metrics.accuracy_with_reassignment(np.array(labels), np.array(pseudo_labels))
     print(f"Test NMI: {nmi}")
     print(f"Test accuracy: {acc}")
-    with open('metrics.txt') as f:
+    with open('metrics.txt', 'w') as f:
         print(f"Test NMI: {nmi}", file=f)
         print(f"Test accuracy: {acc}", file=f)
 
