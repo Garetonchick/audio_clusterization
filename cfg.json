@@ -5,9 +5,9 @@
     "double_softmax": false,
     "data_dir": "smol_dcase",
     "e_step_aug": [
-        "Identity"
+        "RandomLinearFader"
     ],
     "m_step_aug": [
-        "Identity"
+        "RandomResizeCrop"
     ]
 }
