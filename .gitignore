@@ -3,3 +3,5 @@ venv
 dcase
 smol_dcase
 __pycache__
+wandb
+*.pth

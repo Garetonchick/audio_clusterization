@@ -3,6 +3,7 @@ import dcase5
 import metrics
 import json
 import torch
+import wandb
 import numpy as np
 
 from tqdm import tqdm
@@ -91,6 +92,11 @@ def train_epoch_2nd_stage(
         epoch_loss += loss * batch.shape[0]
         n_samples += batch.shape[0]
 
+        log = {
+            'loss': loss
+        }
+        wandb.log(log)
+
     return epoch_loss / n_samples
 
 def train_2nd_stage(
@@ -104,6 +110,7 @@ def train_2nd_stage(
     double_softmax,
     device
 ):
+    min_epoch_loss = float('inf')
     for epoch in tqdm(range(n_epochs), desc="Second stage training"):
         loss = train_epoch_2nd_stage(
             encoder, 
@@ -115,7 +122,14 @@ def train_2nd_stage(
             double_softmax=double_softmax,
             device=device
         )
-        print(f"Epoch: {epoch}, loss: {loss}")
+        if min_epoch_loss > loss:
+            min_epoch_loss = loss
+            torch.save(head.state_dict(), 'head.pth')
+        log = {
+            'epoch': epoch,
+            'epoch_loss': loss
+        }
+        wandb.log(log, commit=False)
 
 def test(encoder, head, dataset, device):
     head.eval()
@@ -126,9 +140,11 @@ def test(encoder, head, dataset, device):
     acc = metrics.accuracy_with_reassignment(np.array(labels), np.array(pseudo_labels))
     print(f"Test NMI: {nmi}")
     print(f"Test accuracy: {acc}")
-    with open('metrics.txt', 'w') as f:
-        print(f"Test NMI: {nmi}", file=f)
-        print(f"Test accuracy: {acc}", file=f)
+    log = {
+        'Test NMI': nmi,
+        'Test accuracy': acc
+    }
+    wandb.log(log)
 
 @torch.no_grad()
 def predict_pseudo_labels(encoder, head, dataset, device):
@@ -159,6 +175,11 @@ def main():
     head = MLP(in_channels=3072, hidden_channels=[6144, cfg['n_clusters']])
     head_optimizer = torch.optim.Adam(head.parameters())
 
+    wandb.init(
+        project="spice-a",
+        config=cfg
+    )
+
     train_2nd_stage(
         n_epochs=cfg['n_epochs'], 
         encoder=byola_model,
@@ -177,6 +198,12 @@ def main():
         dataset=dataset,
         device=device
     )
+
+    head_artifact = wandb.Artifact(name='head_weights', type='weights')
+    head_artifact.add_file("head.pth")
+    wandb.log_artifact(head_artifact)
+
+    wandb.finish()
 
 if __name__ == "__main__":
     main()
