@@ -78,7 +78,6 @@ def train_epoch_2nd_stage(
             aug=e_step_aug,
             device=device
         )
-        print("E step done")
         loss = m_step(
             encoder=encoder,
             head=head,
@@ -88,8 +87,6 @@ def train_epoch_2nd_stage(
             aug=m_step_aug,
             double_softmax=double_softmax
         )
-        print("M step done")
-        print(f"Batch loss: {loss}\n")
         epoch_loss += loss * batch.shape[0]
         n_samples += batch.shape[0]
 
@@ -104,7 +101,8 @@ def train_2nd_stage(
     n_epochs, 
     encoder, 
     head, 
-    head_optimizer, 
+    head_optimizer,
+    dataset,
     dataloader, 
     e_step_aug, 
     m_step_aug, 
@@ -126,9 +124,13 @@ def train_2nd_stage(
         if min_epoch_loss > loss:
             min_epoch_loss = loss
             torch.save(head.state_dict(), 'head.pth')
+
+        nmi, acc = test(encoder, head, dataset, device)
         log = {
             'epoch': epoch,
-            'epoch_loss': loss
+            'epoch_loss': loss,
+            'epoch_NMI': nmi,
+            'epoch_accuracy': acc
         }
         wandb.log(log, commit=False)
 
@@ -139,13 +141,7 @@ def test(encoder, head, dataset, device):
     labels = dataset.get_labels()
     nmi = metrics.nmi_geom(labels, pseudo_labels)
     acc = metrics.accuracy_with_reassignment(np.array(labels), np.array(pseudo_labels))
-    print(f"Test NMI: {nmi}")
-    print(f"Test accuracy: {acc}")
-    log = {
-        'Test NMI': nmi,
-        'Test accuracy': acc
-    }
-    wandb.log(log)
+    return nmi, acc
 
 @torch.no_grad()
 def predict_pseudo_labels(encoder, head, dataset, device):
@@ -167,12 +163,9 @@ def main():
     torch.manual_seed(4444)
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     cfg = load_config('cfg.json')
-    print("Start")
     dataset = dcase5.get_dataset(cfg['data_dir'])
-    print("Loaded dataset")
     dataloader = DataLoader(dataset, batch_size=cfg['batch_size'], shuffle=True, drop_last=True) 
     byola_model = byol_a.get_frozen_pretrained_byola(dataset.calc_norm_stats(), device=device)
-    print("Loaded byola")
     head = MLP(in_channels=3072, hidden_channels=[6144, cfg['n_clusters']])
     head_optimizer = torch.optim.Adam(head.parameters())
 
@@ -187,19 +180,12 @@ def main():
         head=head,
         head_optimizer=head_optimizer,
         dataloader=dataloader,
+        dataset=dataset,
         e_step_aug=augmentations.get_augmentation(cfg['e_step_aug']),
         m_step_aug=augmentations.get_augmentation(cfg['m_step_aug']),
         device=device,
         double_softmax=cfg['double_softmax']
     )
-
-    test(
-        encoder=byola_model,
-        head=head,
-        dataset=dataset,
-        device=device
-    )
-
     head_artifact = wandb.Artifact(name='head_weights', type='weights')
     head_artifact.add_file("head.pth")
     wandb.log_artifact(head_artifact)
