@@ -1,6 +1,7 @@
 import byol_a
 import dcase5
 import metrics
+import augmentations
 import json
 import torch
 import wandb
@@ -186,8 +187,8 @@ def main():
         head=head,
         head_optimizer=head_optimizer,
         dataloader=dataloader,
-        e_step_aug=lambda x: x,
-        m_step_aug=lambda x: x,
+        e_step_aug=augmentations.get_augmentation(cfg['e_step_aug']),
+        m_step_aug=augmentations.get_augmentation(cfg['m_step_aug']),
         device=device,
         double_softmax=cfg['double_softmax']
     )

@@ -3,5 +3,11 @@
     "n_clusters": 2,
     "batch_size": 16,
     "double_softmax": false,
-    "data_dir": "smol_dcase"
+    "data_dir": "smol_dcase",
+    "e_step_aug": [
+        "Identity"
+    ],
+    "m_step_aug": [
+        "Identity"
+    ]
 }

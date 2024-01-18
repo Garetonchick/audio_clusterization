@@ -8,6 +8,7 @@ sys.path.append(os.path.join(script_dir, 'byol-a', 'v2'))
 from byol_a2.common import load_yaml_config
 from byol_a2.models import AudioNTT2022, load_pretrained_weights
 from byol_a2.augmentations import PrecomputedNorm
+from byol_a2 import augmentations
 from copy import deepcopy
 
 byola_cfg = load_yaml_config(os.path.join(script_dir, 'byol-a', 'v2', 'config_v2.yaml'))
