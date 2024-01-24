@@ -1,6 +1,7 @@
 {
     "n_epochs": 4,
     "n_clusters": 2,
+    "n_heads": 4,
     "batch_size": 16,
     "double_softmax": false,
     "data_dir": "smol_dcase",

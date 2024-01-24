@@ -58,50 +58,54 @@ def m_step(encoder, head, head_optimizer, batch_s, proto_labels, aug, double_sof
 
 def train_epoch_2nd_stage(
     encoder, 
-    head, 
-    head_optimizer, 
+    heads, 
+    head_optimizers, 
     dataloader, 
     e_step_aug, 
     m_step_aug, 
     device, 
     double_softmax=False
 ):
-    head.to(device)
-    epoch_loss = 0
+    for head in heads:
+        head.to(device)
+    epoch_losses = [0] * len(heads)
     n_samples = 0 
     for batch, _ in tqdm(dataloader, desc="Train epoch"):
-        batch = batch.to(device)
-        batch_s, proto_labels = e_step(
-            encoder=encoder,
-            head=head,
-            batch=batch,
-            aug=e_step_aug,
-            device=device
-        )
-        loss = m_step(
-            encoder=encoder,
-            head=head,
-            head_optimizer=head_optimizer,
-            batch_s=batch_s,
-            proto_labels=proto_labels,
-            aug=m_step_aug,
-            double_softmax=double_softmax
-        )
-        epoch_loss += loss * batch.shape[0]
-        n_samples += batch.shape[0]
+        log = {}
+        for i, (head, head_optimizer) in enumerate(zip(heads, head_optimizers)):
+            batch = batch.to(device)
+            batch_s, proto_labels = e_step(
+                encoder=encoder,
+                head=head,
+                batch=batch,
+                aug=e_step_aug,
+                device=device
+            )
+            loss = m_step(
+                encoder=encoder,
+                head=head,
+                head_optimizer=head_optimizer,
+                batch_s=batch_s,
+                proto_labels=proto_labels,
+                aug=m_step_aug,
+                double_softmax=double_softmax
+            )
+            epoch_losses[i] += loss * batch.shape[0]
+            n_samples += batch.shape[0]
 
-        log = {
-            'loss': loss
-        }
+            log.update({
+                'loss_head_' + str(i): loss
+            })
         wandb.log(log)
 
-    return epoch_loss / n_samples
+    return [epoch_loss / n_samples for epoch_loss in epoch_losses]
 
 def train_2nd_stage(
     n_epochs, 
     encoder, 
-    head, 
-    head_optimizer,
+    n_heads,
+    head_creator,
+    head_optimizer_creator,
     dataset,
     dataloader, 
     e_step_aug, 
@@ -109,29 +113,37 @@ def train_2nd_stage(
     double_softmax,
     device
 ):
+    heads = [head_creator() for i in range(n_heads)]
+    head_optimizers = [head_optimizer_creator(head) for head in heads]
     min_epoch_loss = float('inf')
     for epoch in tqdm(range(n_epochs), desc="Second stage training"):
-        loss = train_epoch_2nd_stage(
+        log = {}
+        losses = train_epoch_2nd_stage(
             encoder, 
-            head, 
-            head_optimizer, 
+            heads, 
+            head_optimizers, 
             dataloader, 
             e_step_aug, 
             m_step_aug, 
             double_softmax=double_softmax,
             device=device
         )
-        if min_epoch_loss > loss:
-            min_epoch_loss = loss
-            torch.save(head.state_dict(), 'head.pth')
 
-        nmi, acc = test(encoder, head, dataset, device)
-        log = {
-            'epoch': epoch,
-            'epoch_loss': loss,
-            'epoch_NMI': nmi,
-            'epoch_accuracy': acc
-        }
+        for i, (head, head_optimizer) in enumerate(zip(heads, head_optimizers)):
+            if min_epoch_loss > losses[i]:
+                min_epoch_loss = losses[i]
+                torch.save(head.state_dict(), 'best_head.pth')
+            nmi, acc = test(encoder, head, dataset, device)
+            suf = "_head_" + str(i)
+            log.update({
+                'epoch_loss' + suf: losses[i],
+                'epoch_NMI' + suf: nmi,
+                'epoch_accuracy' + suf: acc
+            })
+
+        log.update({
+            'epoch': epoch
+        })
         wandb.log(log, commit=False)
 
 def test(encoder, head, dataset, device):
@@ -166,8 +178,8 @@ def main():
     dataset = dcase5.get_dataset(cfg['data_dir'])
     dataloader = DataLoader(dataset, batch_size=cfg['batch_size'], shuffle=True, drop_last=True) 
     byola_model = byol_a.get_frozen_pretrained_byola(dataset.calc_norm_stats(), device=device)
-    head = MLP(in_channels=3072, hidden_channels=[6144, cfg['n_clusters']])
-    head_optimizer = torch.optim.Adam(head.parameters())
+    head_creator = lambda: MLP(in_channels=3072, hidden_channels=[6144, cfg['n_clusters']])
+    head_optimizer_creator = lambda head: torch.optim.Adam(head.parameters())
 
     wandb.init(
         project="spice-a",
@@ -177,8 +189,9 @@ def main():
     train_2nd_stage(
         n_epochs=cfg['n_epochs'], 
         encoder=byola_model,
-        head=head,
-        head_optimizer=head_optimizer,
+        n_heads=cfg['n_heads'],
+        head_creator=head_creator, 
+        head_optimizer_creator=head_optimizer_creator,
         dataloader=dataloader,
         dataset=dataset,
         e_step_aug=augmentations.get_augmentation(cfg['e_step_aug']),
@@ -187,7 +200,7 @@ def main():
         double_softmax=cfg['double_softmax']
     )
     head_artifact = wandb.Artifact(name='head_weights', type='weights')
-    head_artifact.add_file("head.pth")
+    head_artifact.add_file("best_head.pth")
     wandb.log_artifact(head_artifact)
 
     wandb.finish()
