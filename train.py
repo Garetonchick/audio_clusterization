@@ -66,14 +66,14 @@ def train_epoch_2nd_stage(
     device, 
     double_softmax=False
 ):
-    for head in heads:
-        head.to(device)
     epoch_losses = [0] * len(heads)
     n_samples = 0 
     for batch, _ in tqdm(dataloader, desc="Train epoch"):
+        batch = batch.to(device)
         log = {}
         for i, (head, head_optimizer) in enumerate(zip(heads, head_optimizers)):
-            batch = batch.to(device)
+            head.to(device)
+            torch.cuda.empty_cache()
             batch_s, proto_labels = e_step(
                 encoder=encoder,
                 head=head,
@@ -96,6 +96,8 @@ def train_epoch_2nd_stage(
             log.update({
                 'loss_head_' + str(i): loss
             })
+            torch.cuda.empty_cache()
+            head.cpu()
         wandb.log(log)
 
     return [epoch_loss / n_samples for epoch_loss in epoch_losses]
@@ -153,6 +155,8 @@ def test(encoder, head, dataset, device):
     labels = dataset.get_labels()
     nmi = metrics.nmi_geom(labels, pseudo_labels)
     acc = metrics.accuracy_with_reassignment(np.array(labels), np.array(pseudo_labels))
+    head.cpu()
+    torch.cuda.empty_cache()
     return nmi, acc
 
 @torch.no_grad()
