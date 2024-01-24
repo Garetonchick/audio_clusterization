@@ -175,10 +175,10 @@ def load_config(path):
     with open(path) as f:
         return json.load(f)
 
-def main():
+def main(cfg=None):
     torch.manual_seed(4444)
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    cfg = load_config('cfg.json')
+    cfg = load_config('cfg.json') if cfg is None else cfg
     dataset = dcase5.get_dataset(cfg['data_dir'])
     dataloader = DataLoader(dataset, batch_size=cfg['batch_size'], shuffle=True, drop_last=True) 
     byola_model = byol_a.get_frozen_pretrained_byola(dataset.calc_norm_stats(), device=device)
