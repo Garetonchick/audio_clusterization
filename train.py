@@ -181,8 +181,14 @@ def main(cfg=None):
     cfg = load_config('cfg.json') if cfg is None else cfg
     dataset = dcase5.get_dataset(cfg['data_dir'])
     dataloader = DataLoader(dataset, batch_size=cfg['batch_size'], shuffle=True, drop_last=True) 
-    byola_model = byol_a.get_frozen_pretrained_byola(dataset.calc_norm_stats(), device=device)
-    head_creator = lambda: MLP(in_channels=3072, hidden_channels=[6144, cfg['n_clusters']])
+    only_highlevel_features = cfg.get('only_highlevel_features', False)
+    byola_model = byol_a.get_frozen_pretrained_byola(
+        dataset.calc_norm_stats(), 
+        device=device,
+        only_highlevel_features=only_highlevel_features
+    )
+    n_features = 2048 if only_highlevel_features else 3072
+    head_creator = lambda: MLP(in_channels=n_features, hidden_channels=[n_features*2, cfg['n_clusters']])
     head_optimizer_creator = lambda head: torch.optim.Adam(head.parameters())
 
     wandb.init(
