@@ -15,6 +15,7 @@
 \usepackage{subcaption}
 \usepackage{listings}
 \usepackage{indentfirst}
+\usepackage{dsfont}
 \usepackage[
 backend=biber,
 style=numeric,
@@ -102,12 +103,14 @@ maxbibnames=99
 Псевдометки сравниваются с настоящими метками
 и качество определяется как некоторый вид корреляции между ними.
 
-Одной из самых популярных метрик качества является NMI(Normalized Mutual Information).
+Одной из самых популярных метрик качества является NMI(Normalized Mutual \\
+Information).
 Пусть у нас есть пара случайных величин $X$ и $Y$, тогда:
 
 \[
-	\text{NMI}(X,Y) = \frac{\text{KL}(p_{(X, Y)}| p_X \otimes p_Y)}{\sqrt{H(X)H(Y)}}
+	\text{NMI}(X,Y) = \frac{\text{KL}(p_{(X, Y)}| p_X \cdot p_Y)}{\sqrt{H(X)H(Y)}}
 \]
+Тут KL это Кульбака-Лейблера, H -- энтропия.
 При подсчете NMI мы считаем распределения меток и псевдометок 
 за $X$ и $Y$ и вычисляем \textit{оценку максимального правдоподобия}\footnote{далее ОМП}. NMI 
 принимает значения от 0 до 1.
@@ -117,7 +120,7 @@ maxbibnames=99
 Определяется ARI следующим образом:
 
 \[
-	\text{ARI}(X, Y) = \frac{\text{RI}(X, Y) - \text{E}[\text{RI}(X, Y)]}{1 - \text{E}[\text{RI}(X, Y)]}
+	\text{ARI}(X, Y) = \frac{\text{RI}(X, Y) - \mathds{E}[\text{RI}(X, Y)]}{1 - \mathds{E}[\text{RI}(X, Y)]}
 \]
 
 ARI принимает значения от 0 до 1.
