@@ -2,8 +2,10 @@
 venv
 dcase
 smol_dcase
+data
 __pycache__
 wandb
+out
 *.pth
 *.aux
 *.bbl
