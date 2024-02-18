@@ -5,7 +5,7 @@
     "batch_size": 16,
     "double_softmax": false,
     "only_highlevel_features": false,
-    "data_dir": "smol_dcase",
+    "data_dir": "../smol_dcase",
     "e_step_aug": [
         "RandomLinearFader"
     ],
