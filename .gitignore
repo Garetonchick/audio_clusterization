@@ -6,6 +6,7 @@ data
 __pycache__
 wandb
 out
+embeds
 *.pth
 *.aux
 *.bbl

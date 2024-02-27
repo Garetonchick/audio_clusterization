@@ -20,22 +20,21 @@ def calc_knn(embeds, k):
     return indicies
 
 def main(args):
-    embeds_name = f"{args.dataset}-{args.encoder}-embeds.pth"
-    knn_name = f"{args.dataset}-{args.encoder}-knn.pth"
+    out_dir = os.path.join(args.out_dir, f'{args.dataset}-{args.encoder}')
     embeds = None
     if not args.only_knn:
         dataset = get_dataset(args.dataset)
         encoder = get_encoder(args.encoder, dataset)
         embeds = gen_normalized_embeds(encoder, dataset)
     else:
-        embeds = torch.load(os.path.join(args.data_dir, embeds_name))
+        embeds = torch.load(os.path.join(args.data_dir, 'embeds.pth'))
         embeds = F.normalize(embeds, p=2, dim=1) 
     
     knn_indicies = calc_knn(embeds, embeds.shape[0] // args.n_clusters)
 
-    os.makedirs(args.out_dir, exist_ok=True)
-    torch.save(embeds, os.path.join(args.out_dir, embeds_name))
-    torch.save(knn_indicies, os.path.join(args.out_dir, knn_name))
+    os.makedirs(out_dir, exist_ok=True)
+    torch.save(embeds, os.path.join(out_dir, 'embeds.pth'))
+    torch.save(knn_indicies, os.path.join(out_dir, 'knn.pth'))
 
 description = \
 """
@@ -46,7 +45,7 @@ KNN for each embedding in feature space.
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-                    prog='temi_gen_embeds',
+                    prog='gen_embeds',
                     description=description 
     )
     parser.add_argument(
@@ -54,7 +53,7 @@ if __name__ == "__main__":
         help="Path to your audio dataset/embeddings"
     )
     parser.add_argument(
-        '--out_dir', default="out", type=str,
+        '--out_dir', default="embeds", type=str,
         help="Path to output embeddings"
     )
     parser.add_argument(
@@ -68,7 +67,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--only_knn', default=False, action="store_true",
         help="""Generate KNN for embeddings in data_dir. 
-        Embeddings must have name in format \"{dataset}-{encoder}-embeds.pth\""""
+        Embeddings must have name \"embeds.pth\""""
     )
     parser.add_argument(
         '--n_clusters', required=True, type=int,
