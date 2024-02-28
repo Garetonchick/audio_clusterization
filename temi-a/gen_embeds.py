@@ -1,9 +1,10 @@
 import os
 import torch
 import argparse
+
 import torch.nn.functional as F
 
-def gen_normalized_embeds(encoder, dataset):
+def gen_embeds(encoder, dataset):
     raise NotImplementedError()
 
 def get_dataset(dataset_name):
@@ -14,6 +15,7 @@ def get_encoder(encoder_name, dataset):
 
 def calc_knn(embeds, k):
     # Naive implementation
+    embeds = F.normalize(embeds, p=2, dim=1)
     sims = embeds @ embeds.permute(1, 0)
     sims.fill_diagonal_(float('-inf'))
     _, indicies = torch.topk(sims, k=k, dim=1)
@@ -25,10 +27,9 @@ def main(args):
     if not args.only_knn:
         dataset = get_dataset(args.dataset)
         encoder = get_encoder(args.encoder, dataset)
-        embeds = gen_normalized_embeds(encoder, dataset)
+        embeds = gen_embeds(encoder, dataset)
     else:
         embeds = torch.load(os.path.join(args.data_dir, 'embeds.pth'))
-        embeds = F.normalize(embeds, p=2, dim=1) 
     
     knn_indicies = calc_knn(embeds, embeds.shape[0] // args.n_clusters)
 

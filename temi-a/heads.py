@@ -23,7 +23,7 @@ class MultiHead(nn.Module):
         head_kwargs = {
             "n_embed": n_embed, 
             "n_classes": n_classes, 
-            "hidden_dim": n_hidden
+            "n_hidden": n_hidden
         }
         self.heads = nn.ModuleList([Head(**head_kwargs) for _ in range(n_heads)])
 
