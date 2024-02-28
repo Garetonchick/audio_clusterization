@@ -7,7 +7,7 @@ from tqdm.auto import tqdm
 from collections import Counter
 
 from heads import MultiHead
-from losses import MultiHeadTEMILoss
+from losses import MultiHeadTEMILoss, MultiHeadWPMILoss
 from metrics import accuracy_with_reassignment, nmi_geom, standartify_clusters
 
 @torch.no_grad()
@@ -74,8 +74,9 @@ def train_epoch(
         # Sample random knn pairs for batch
         samples = torch.randint(size=(batch_size,), high=n_embeds)
         neighbours = torch.randint(size=(batch_size,), high=n_neighbours)
+        neighbour_indices = knn_indices[samples, neighbours]
         x1 = embeds[samples, :]
-        x2 = embeds[neighbours, :]
+        x2 = embeds[neighbour_indices, :]
 
         # Compute probabilities
         sprobs = list(zip(students(x1), students(x2)))
@@ -127,12 +128,19 @@ def train(args, students, teachers, embeds, knn_indices):
     # Optimizer
     optimizer = torch.optim.AdamW(get_params_groups(students))
     # Loss function
-    criterion = MultiHeadTEMILoss(
-        n_heads=args.n_heads, 
-        n_classes=args.n_clusters, 
-        momentum=0.99,
-        beta=args.beta
-    )
+    loss_kwargs = {
+        'n_heads': args.n_heads,
+        'n_classes': args.n_clusters,
+        'momentum': 0.99,
+        'beta': args.beta
+    }
+    criterion = None
+    if args.loss_func == "TEMI":
+        criterion = MultiHeadTEMILoss(**loss_kwargs)
+    elif args.loss_func == "WPMI":
+        criterion = MultiHeadWPMILoss(**loss_kwargs)
+    else:
+        raise ValueError("Unknown loss function")
     # Schedulers
     bs_factor = args.batch_size / 256.
     its_per_epoch = embeds.shape[0] // args.batch_size
@@ -281,12 +289,16 @@ if __name__ == "__main__":
         '--warmup_epochs', default=20, type=int,
         help="Number of warmup epochs"
     )
+    parser.add_argument(
+        '--loss_func', default="TEMI", type=str, choices=["TEMI", "WPMI"],
+        help="Loss function name"
+    )
     main(parser.parse_args())
 
 """
 python train.py --data_dir="embeds\DCASE2018_TASK5-PaSST" --n_clusters=9 --labels_path="data\labels.npy" --n_epochs=100 --n_heads=1
 
-acc=0.50, nmi=0.38
-python train.py --data_dir="embeds\DCASE2018_TASK5-PaSST" --n_clusters=9 --labels_path="data\labels.npy" --n_epochs=100 --n_heads=1 --lr=1e-6
+acc=0.75, nmi=0.59
+python train.py --data_dir="embeds\DCASE2018_TASK5-PaSST" --n_clusters=9 --labels_path="data\labels.npy" --n_epochs=300 --n_heads=1 --lr=1e-4 --batch_size=256 --warmup_epochs=0
 """
 #  

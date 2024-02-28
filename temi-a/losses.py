@@ -5,15 +5,20 @@ class PMILoss(nn.Module):
     def __init__(self, n_classes, momentum, beta, device='cpu'):
         super().__init__()
         self.momentum = momentum
-        self.global_tprobs = torch.full((n_classes,), fill_value=1/n_classes, device=device)
         self.beta = beta
+        self.updates = 0
+        self.register_buffer("global_tprobs", torch.ones(1, n_classes)/n_classes)
 
     def raw_pmi(self, sprobs, tprobs):
-        prob_sum = (torch.pow(sprobs * tprobs, self.beta) * torch.reciprocal(self.global_tprobs)).sum(dim=1)
+        prob_sum = (torch.pow(sprobs * tprobs, self.beta) / self.global_tprobs).sum(dim=1)
         return torch.log(prob_sum)
 
+    @torch.no_grad()
     def update_global_tprobs(self, tprobs):
+        # self.global_tprobs = torch.tensor([0.263588, 0.246937, 0.244109, 0.076029, 0.073516, 0.034244, 0.027647,0.021363, 0.012567], dtype=torch.float)
         self.global_tprobs = self.momentum * self.global_tprobs + (1 - self.momentum) * tprobs.mean(dim=0)
+        self.global_tprobs /= self.global_tprobs.norm()
+        # print(self.global_tprobs)
     
     def forward(self, sprobs, tprobs):
         """
