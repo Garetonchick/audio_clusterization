@@ -2,13 +2,14 @@ import torch
 import torch.nn as nn
 
 class PMILoss(nn.Module):
-    def __init__(self, n_classes, momentum, device='cpu'):
+    def __init__(self, n_classes, momentum, beta, device='cpu'):
         super().__init__()
         self.momentum = momentum
         self.global_tprobs = torch.full((n_classes,), fill_value=1/n_classes, device=device)
+        self.beta = beta
 
     def raw_pmi(self, sprobs, tprobs):
-        prob_sum = (sprobs * tprobs * torch.reciprocal(self.global_tprobs)).sum(dim=1)
+        prob_sum = (torch.pow(sprobs * tprobs, self.beta) * torch.reciprocal(self.global_tprobs)).sum(dim=1)
         return torch.log(prob_sum)
 
     def update_global_tprobs(self, tprobs):
@@ -27,10 +28,16 @@ class PMILoss(nn.Module):
         return losses
 
 class MultiHeadWPMILoss(nn.Module):
-    def __init__(self, n_heads, n_classes, momentum, device='cpu'):
+    def __init__(self, n_heads, n_classes, momentum, beta, device='cpu'):
         super().__init__()
         self.n_heads = n_heads
-        self.pmi_losses = [PMILoss(n_classes=n_classes, momentum=momentum, device=device) for _ in range(n_heads)]
+        pmiloss_kwargs = {
+            'n_classes': n_classes,
+            'momentum': momentum,
+            'beta': beta,
+            'device': device
+        }
+        self.pmi_losses = [PMILoss(**pmiloss_kwargs) for _ in range(n_heads)]
 
     def forward(self, sprobs, tprobs):
         """
@@ -50,11 +57,17 @@ class MultiHeadWPMILoss(nn.Module):
             
 
 class MultiHeadTEMILoss(nn.Module):
-    def __init__(self, n_heads, n_classes, momentum, device='cpu'):
+    def __init__(self, n_heads, n_classes, momentum, beta, device='cpu'):
         super().__init__()
         self.device = device
         self.n_heads = n_heads
-        self.pmi_losses = [PMILoss(n_classes=n_classes, momentum=momentum, device=device) for _ in range(n_heads)]
+        pmiloss_kwargs = {
+            'n_classes': n_classes,
+            'momentum': momentum,
+            'beta': beta,
+            'device': device
+        }
+        self.pmi_losses = [PMILoss(**pmiloss_kwargs) for _ in range(n_heads)]
      
     def forward(self, sprobs, tprobs):
         """
