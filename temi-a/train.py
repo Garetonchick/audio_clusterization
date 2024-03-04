@@ -1,13 +1,15 @@
 import os
 import argparse
 import torch
+import wandb
 import numpy as np
+import torch.nn.functional as F
 
 from tqdm.auto import tqdm
 from collections import Counter
 
 from heads import MultiHead
-from losses import MultiHeadTEMILoss, MultiHeadWPMILoss
+from losses import MultiHeadTEMILoss, MultiHeadWPMILoss, StolenTEMILossAdapter
 from metrics import accuracy_with_reassignment, nmi_geom, standartify_clusters
 
 @torch.no_grad()
@@ -42,6 +44,7 @@ def eval_head(teachers, teacher_idx, embeds, labels, batch_size):
     return acc, nmi
 
 def train_epoch(
+    args,
     optimizer, 
     students, 
     teachers, 
@@ -79,12 +82,18 @@ def train_epoch(
         x2 = embeds[neighbour_indices, :]
 
         # Compute probabilities
-        sprobs = list(zip(students(x1), students(x2)))
-        tprobs = list(zip(teachers(x1), teachers(x2)))
+        slogits = list(zip(students(x1), students(x2)))
+        tlogits = list(zip(teachers(x1), teachers(x2)))
+        sprobs = [(F.softmax(a / 0.1, dim=1), F.softmax(b / 0.1, dim=1)) for a, b in slogits]
+        tprobs = [(F.softmax(a / 0.1, dim=1), F.softmax(b / 0.1, dim=1)) for a, b in tlogits] 
 
         # Calculate loss
-        losses = criterion(sprobs, tprobs)
-        avg_loss = sum(losses) / len(losses)
+        losses = None
+        if args.loss_func == "StolenTEMILossAdapter":
+            losses = criterion(slogits, tlogits, epoch=epoch) 
+        else:
+            losses = criterion(sprobs, tprobs)
+        avg_loss = torch.cat([loss.view(1) for loss in losses]).mean()
         epoch_losses = [l1 + l2.item() / n_its_per_epoch for l1, l2 in zip(epoch_losses, losses)]
 
         # Backpropagation for students
@@ -139,6 +148,14 @@ def train(args, students, teachers, embeds, knn_indices):
         criterion = MultiHeadTEMILoss(**loss_kwargs)
     elif args.loss_func == "WPMI":
         criterion = MultiHeadWPMILoss(**loss_kwargs)
+    elif args.loss_func == "StolenTEMILossAdapter":
+        criterion = StolenTEMILossAdapter(
+            n_epochs=args.n_epochs,
+            n_heads=args.n_heads,
+            n_classes=args.n_clusters,
+            batch_size=args.batch_size,
+            beta=args.beta
+        ) 
     else:
         raise ValueError("Unknown loss function")
     # Schedulers
@@ -168,6 +185,7 @@ def train(args, students, teachers, embeds, knn_indices):
 
     for i in range(args.n_epochs):
         losses = train_epoch(
+            args=args,
             optimizer=optimizer,
             students=students,
             teachers=teachers,
@@ -192,6 +210,22 @@ def train(args, students, teachers, embeds, knn_indices):
         )
         print(f"Best head {best_head_idx}, acc={acc}, NMI={nmi}")
 
+        log = {'epoch': i}
+        for i, loss in enumerate(losses):
+            acc, nmi = eval_head(
+                teachers=teachers, 
+                teacher_idx=i, 
+                embeds=embeds, 
+                labels=labels, 
+                batch_size=args.batch_size
+            )
+            log.update({
+                f'loss_head_{i}': loss,
+                f'accuracy_head_{i}': acc,
+                f'NMI_head_{i}': nmi
+            })
+        wandb.log(log)
+
 def load_data(data_dir):
     embeds = torch.load(os.path.join(data_dir, 'embeds.pth'))
     knn_indices = torch.load(os.path.join(data_dir, 'knn.pth'))
@@ -204,6 +238,7 @@ def main(args):
         embeds /= embeds.norm(dim=-1, keepdim=True)
 
     n_embed = embeds.shape[1] 
+    print(f"n_embed={n_embed}")
     multihead_kwargs = {
         'n_heads': args.n_heads,
         'n_embed': n_embed,
@@ -217,6 +252,11 @@ def main(args):
     for param in teachers.parameters():
         param.requires_grad = False
 
+    wandb.init(
+        project="temi-a",
+        config=args
+    )
+
     train(
         args=args, 
         students=students, 
@@ -224,6 +264,8 @@ def main(args):
         embeds=embeds, 
         knn_indices=knn_indices
     )
+
+    wandb.finish()
 
 description = \
 """
@@ -290,7 +332,7 @@ if __name__ == "__main__":
         help="Number of warmup epochs"
     )
     parser.add_argument(
-        '--loss_func', default="TEMI", type=str, choices=["TEMI", "WPMI"],
+        '--loss_func', default="TEMI", type=str, choices=["TEMI", "WPMI", "StolenTEMILossAdapter"],
         help="Loss function name"
     )
     main(parser.parse_args())

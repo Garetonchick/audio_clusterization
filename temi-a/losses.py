@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from stolen import TEMI as StolenTEMILoss
+
 class PMILoss(nn.Module):
     def __init__(self, n_classes, momentum, beta, device='cpu'):
         super().__init__()
@@ -76,7 +78,7 @@ class MultiHeadTEMILoss(nn.Module):
      
     def forward(self, sprobs, tprobs):
         """
-        Calculate teacher-Weighted Pointwise Mutual Information (WPMI) Loss
+        Calculate teacher-Weighted Pointwise Mutual Information (TEMI) Loss
         :param sprobs: list of pairs of tensors with shape (B, C). list index determines head, first 
         tensor in pair contains student probabilities of image x, second contains the same for image x'
         :param tprobs: list of pairs of tensors with shape (B, C). list index determines head, first 
@@ -84,10 +86,8 @@ class MultiHeadTEMILoss(nn.Module):
         :return: losses for each head 
         """
         B = sprobs[0][0].shape[0] 
-        tweights = torch.zeros((B,), device=self.device)
-
-        for i in range(self.n_heads):
-            tweights += (tprobs[i][0] * tprobs[i][1]).sum(dim=1)
+        tweights = [(tprobs[i][0] * tprobs[i][1]).sum(dim=1) for i in range(self.n_heads)]
+        tweights = torch.cat(tweights).mean(dim=0)
 
         tweights /= self.n_heads
         losses = [] 
@@ -96,3 +96,31 @@ class MultiHeadTEMILoss(nn.Module):
             losses.append((tweights * self.pmi_losses[i](sprobs[i], tprobs[i])).mean())
 
         return losses
+
+class StolenTEMILossAdapter(nn.Module):
+    def __init__(self, n_epochs, n_heads, n_classes, batch_size, beta):
+        super().__init__()
+        dino_loss_args = dict(
+            out_dim=n_classes,
+            batchsize=batch_size,
+            warmup_teacher_temp=0.1,
+            teacher_temp=0.1,
+            warmup_teacher_temp_epochs=20,
+            nepochs=n_epochs,
+            num_heads=n_heads,
+            beta=beta)
+        self.loss_func = StolenTEMILoss(**dino_loss_args)
+
+     
+    def forward(self, slogits, tlogits, epoch):
+        """
+        Calculate teacher-Weighted Pointwise Mutual Information (TEMI) Loss
+        :param slogits: list of pairs of tensors with shape (B, C). list index determines head, first 
+        tensor in pair contains student logits of image x, second contains the same for image x'
+        :param tlogits: list of pairs of tensors with shape (B, C). list index determines head, first 
+        tensor in pair contains teacher logits of image x, second contains the same for image x'
+        :return: losses for each head 
+        """
+        slogits = [torch.cat(lg) for lg in slogits]
+        tlogits = [torch.cat(lg) for lg in tlogits]
+        return self.loss_func(slogits, tlogits, epoch)

@@ -53,7 +53,6 @@ class Head(nn.Module):
         self.apply(self._init_weights)
         self.last_linear = nn.utils.weight_norm(nn.Linear(n_bottleneck, n_classes, bias=False))
         self.last_linear.weight_g.data.fill_(1)
-        self.softmax = nn.Softmax(dim=1)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -63,8 +62,7 @@ class Head(nn.Module):
     
     def forward(self, x):
         logits = self.last_linear(self.body(x))
-        logits /= self.temp
-        return self.softmax(logits)
+        return logits
 
 class MultiHead(nn.Module):
     def __init__(self, n_heads, n_embed, n_classes, n_hidden=512):
