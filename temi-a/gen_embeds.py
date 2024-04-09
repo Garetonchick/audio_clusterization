@@ -21,7 +21,7 @@ def get_encoder(encoder_name, dataset):
 def calc_knn(embeds, k):
     # Naive implementation
     n_embeds = embeds.shape[0]
-    if n_embeds <= 8*1e3:
+    if n_embeds <= 15000:
         embeds = F.normalize(embeds, p=2, dim=1)
         sims = embeds @ embeds.permute(1, 0)
         sims.fill_diagonal_(float('-inf'))
