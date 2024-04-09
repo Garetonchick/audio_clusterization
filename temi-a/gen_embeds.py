@@ -4,6 +4,10 @@ import argparse
 
 import torch.nn.functional as F
 
+from tqdm.auto import tqdm
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 def gen_embeds(encoder, dataset):
     raise NotImplementedError()
 
@@ -13,13 +17,30 @@ def get_dataset(dataset_name):
 def get_encoder(encoder_name, dataset):
     raise NotImplementedError()
 
+@torch.no_grad()
 def calc_knn(embeds, k):
     # Naive implementation
-    embeds = F.normalize(embeds, p=2, dim=1)
-    sims = embeds @ embeds.permute(1, 0)
-    sims.fill_diagonal_(float('-inf'))
-    _, indicies = torch.topk(sims, k=k, dim=1)
-    return indicies
+    n_embeds = embeds.shape[0]
+    if n_embeds <= 8*1e3:
+        embeds = F.normalize(embeds, p=2, dim=1)
+        sims = embeds @ embeds.permute(1, 0)
+        sims.fill_diagonal_(float('-inf'))
+        _, indices = torch.topk(sims, k=k, dim=1)
+        return indices
+
+    topk_knn_ids = []
+    print("Chunk-wise implementation of k-nn in GPU")
+    step_size = 64
+    embeds = embeds.to(DEVICE)
+    for idx in tqdm(range(0, n_embeds, step_size)):
+        idx_next_chunk = min((idx + step_size), n_embeds)
+        features = embeds[idx : idx_next_chunk, :]
+        dists_chunk = torch.mm(features, embeds.T)
+        dists_chunk.fill_diagonal_(-torch.inf)
+        _, indices = dists_chunk.topk(k, dim=-1)
+        topk_knn_ids.append(indices.cpu())
+
+    return torch.cat(topk_knn_ids)
 
 def main(args):
     out_dir = os.path.join(args.out_dir, f'{args.dataset}-{args.encoder}')
