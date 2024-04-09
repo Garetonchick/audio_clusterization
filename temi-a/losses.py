@@ -3,13 +3,15 @@ import torch.nn as nn
 
 from stolen import TEMI as StolenTEMILoss
 
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 class PMILoss(nn.Module):
     def __init__(self, n_classes, momentum, beta, device='cpu'):
         super().__init__()
         self.momentum = momentum
         self.beta = beta
         self.updates = 0
-        self.register_buffer("global_tprobs", torch.ones(1, n_classes)/n_classes)
+        self.register_buffer("global_tprobs", torch.ones(1, n_classes, device=DEVICE)/n_classes)
 
     def raw_pmi(self, sprobs, tprobs):
         prob_sum = (torch.pow(sprobs * tprobs, self.beta) / self.global_tprobs).sum(dim=1)

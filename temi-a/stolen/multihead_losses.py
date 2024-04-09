@@ -13,6 +13,8 @@ __all__ = [
 from .loss_utils import sim_weight, beta_mi
 
 
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 def multihead_loss(cls):
     """Marks a loss as multiclass compatible."""
     cls.IS_MULTIHEAD = True
@@ -31,7 +33,7 @@ class MultiHeadWeightProbBase(StudentTeacherLoss, ABC):
         super().__init__(*args, **kwargs)
         self.probs_momentum = probs_momentum
         self.num_heads = num_heads
-        self.register_buffer("pk", 1/self.out_dim * torch.ones(self.num_heads, self.out_dim))
+        self.register_buffer("pk", 1/self.out_dim * torch.ones(self.num_heads, self.out_dim, device=DEVICE))
 
     @abstractmethod
     def weight(self, pt1, pt2, epoch, idx):

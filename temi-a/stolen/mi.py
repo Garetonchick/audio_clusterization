@@ -14,6 +14,7 @@ __all__ = [
 
 from .loss_utils import sim_weight, beta_mi
 
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class StudentTeacherLoss(nn.Module, ABC):
 
@@ -70,8 +71,8 @@ class DINOLossMI(StudentTeacherLoss):
         )
         self.center_momentum = center_momentum
         self.probs_momentum = probs_momentum
-        self.register_buffer("probs_pos", torch.ones(1, out_dim)/out_dim)
-        self.register_buffer("probs_neg", torch.ones(1, out_dim)/out_dim)
+        self.register_buffer("probs_pos", torch.ones(1, out_dim, device=DEVICE)/out_dim)
+        self.register_buffer("probs_neg", torch.ones(1, out_dim, device=DEVICE)/out_dim)
 
     def forward(self, student_out, teacher_out, epoch):
         ncrops_student = len(student_out)//self.batchsize

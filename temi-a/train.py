@@ -12,7 +12,8 @@ from heads import MultiHead
 from losses import MultiHeadTEMILoss, MultiHeadWPMILoss, StolenTEMILossAdapter
 from metrics import accuracy_with_reassignment, nmi_geom, standartify_clusters
 
-@torch.no_grad()
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 def update_teachers(students, teachers, momentum):
     for teacher_param, student_param in zip(teachers.parameters(), students.parameters()):
         teacher_param.data.mul_(momentum).add_(student_param.detach().data, alpha=1-momentum)
@@ -25,22 +26,24 @@ def load_labels(labels_path):
     ld = {label: i for i, label in enumerate(set(labels))} 
     return np.array([ld[label] for label in labels])
 
+@torch.no_grad()
 def predict_labels(teachers, teacher_idx, embeds, batch_size):
     n_batches = (embeds.shape[0] + batch_size - 1) // batch_size
     labels = []
 
     for i in range(n_batches):
-        batch = embeds[i * batch_size: (i + 1)*batch_size]
+        batch = embeds[i * batch_size: (i + 1)*batch_size].to(DEVICE)
         probs = teachers(batch)[teacher_idx]
-        labels.extend(list(torch.argmax(probs, dim=1)))
+        labels.extend(torch.argmax(probs, dim=1).tolist())
     
     return np.array(labels)
 
+@torch.no_grad()
 def eval_head(teachers, teacher_idx, embeds, labels, batch_size):
     pseudo_labels = standartify_clusters(predict_labels(teachers, teacher_idx, embeds, batch_size))
     acc = accuracy_with_reassignment(labels, pseudo_labels)
     nmi = nmi_geom(labels, pseudo_labels)
-    print(Counter(pseudo_labels))
+    # print(Counter(pseudo_labels))
     return acc, nmi
 
 def train_epoch(
@@ -78,8 +81,8 @@ def train_epoch(
         samples = torch.randint(size=(batch_size,), high=n_embeds)
         neighbours = torch.randint(size=(batch_size,), high=n_neighbours)
         neighbour_indices = knn_indices[samples, neighbours]
-        x1 = embeds[samples, :]
-        x2 = embeds[neighbour_indices, :]
+        x1 = embeds[samples, :].to(DEVICE)
+        x2 = embeds[neighbour_indices, :].to(DEVICE)
 
         # Compute probabilities
         slogits = list(zip(students(x1), students(x2)))
@@ -245,8 +248,8 @@ def main(args):
         'n_hidden': args.n_hidden,
         'n_classes': args.n_clusters
     }
-    students = MultiHead(**multihead_kwargs) 
-    teachers = MultiHead(**multihead_kwargs) 
+    students = MultiHead(**multihead_kwargs).to(DEVICE) 
+    teachers = MultiHead(**multihead_kwargs).to(DEVICE)
     students.load_state_dict(teachers.state_dict())
 
     for param in teachers.parameters():
