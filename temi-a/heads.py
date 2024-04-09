@@ -61,10 +61,7 @@ class Head(nn.Module):
             nn.init.constant_(m.bias, 0)
     
     def forward(self, x):
-        x = self.body(x)
-        x = nn.functional.normalize(x, dim=-1, p=2)
-        logits = self.last_linear(x)
-
+        logits = self.last_linear(self.body(x))
         return logits
 
 class MultiHead(nn.Module):
