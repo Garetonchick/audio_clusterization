@@ -20,16 +20,15 @@ def get_encoder(encoder_name, dataset):
 @torch.no_grad()
 def calc_knn(embeds, k):
     # Naive implementation
+    embeds = F.normalize(embeds, p=2, dim=1)
     n_embeds = embeds.shape[0]
-    if n_embeds <= 15000:
-        embeds = F.normalize(embeds, p=2, dim=1)
+    if n_embeds <= 15000: #15000:
         sims = embeds @ embeds.permute(1, 0)
         sims.fill_diagonal_(float('-inf'))
         _, indices = torch.topk(sims, k=k, dim=1)
         return indices
 
     topk_knn_ids = []
-    print("Chunk-wise implementation of k-nn in GPU")
     step_size = 64
     embeds = embeds.to(DEVICE)
     for idx in tqdm(range(0, n_embeds, step_size)):
@@ -39,8 +38,9 @@ def calc_knn(embeds, k):
         dists_chunk.fill_diagonal_(-torch.inf)
         _, indices = dists_chunk.topk(k, dim=-1)
         topk_knn_ids.append(indices.cpu())
-
-    return torch.cat(topk_knn_ids)
+    
+    indices = torch.cat(topk_knn_ids)
+    return indices
 
 def main(args):
     out_dir = os.path.join(args.out_dir, f'{args.dataset}-{args.encoder}')
