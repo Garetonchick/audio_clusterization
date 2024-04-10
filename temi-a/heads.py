@@ -2,6 +2,10 @@ import torch.nn as nn
 import math
 import warnings
 import torch
+import sys
+
+import stolen
+import stolen.model_builders
 
 def _no_grad_trunc_normal_(tensor, mean, std, a, b):
     # Cut & paste from PyTorch official master until it's in a few official releases - RW
@@ -79,3 +83,39 @@ class MultiHead(nn.Module):
 
     def forward(self, x):
         return [head(x) for head in self.heads]
+
+
+class StolenMultiHead(nn.Module):
+    def __init__(self, n_heads, n_embed, n_classes, n_hidden=512):
+        super().__init__()
+        self.multihead = stolen.model_builders.MultiHeadClassifier(
+            backbone="PaSST", 
+            embed_dim=n_embed, 
+            out_dim=n_classes,
+            use_bn_in_head=False,
+            head_dropout_prob=0.0,
+            head_final_gelu=False,
+            norm_last_layer=False,
+            req_grad=True,
+            l2_norm=False,
+            nlayers=2,
+            hidden_dim=n_hidden,
+            layer_norm_only=False,
+            bottleneck_dim=256,
+            num_heads=n_heads
+        )
+    
+    def forward(self, x):
+        return self.multihead(x)
+
+def get_multihead(args, n_embed):
+    multihead_kwargs = {
+        'n_heads': args.n_heads,
+        'n_embed': n_embed,
+        'n_hidden': args.n_hidden,
+        'n_classes': args.n_clusters
+    }
+    if args.head_arch not in ["MultiHead", "StolenMultiHead"]:
+        raise ValueError(f'Unknown head architecture: "{args.head_arch}"')
+    print(f"Head arch = {args.head_arch}")
+    return getattr(sys.modules[__name__], args.head_arch)(**multihead_kwargs)

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from stolen import TEMI as StolenTEMILoss
+from stolen.losses import TEMI as StolenTEMILoss
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 

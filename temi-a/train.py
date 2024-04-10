@@ -6,9 +6,8 @@ import numpy as np
 import torch.nn.functional as F
 
 from tqdm.auto import tqdm
-from collections import Counter
 
-from heads import MultiHead
+from heads import get_multihead 
 from losses import MultiHeadTEMILoss, MultiHeadWPMILoss, StolenTEMILossAdapter
 from metrics import accuracy_with_reassignment, nmi_geom, standartify_clusters
 
@@ -242,14 +241,8 @@ def main(args):
 
     n_embed = embeds.shape[1] 
     print(f"n_embed={n_embed}")
-    multihead_kwargs = {
-        'n_heads': args.n_heads,
-        'n_embed': n_embed,
-        'n_hidden': args.n_hidden,
-        'n_classes': args.n_clusters
-    }
-    students = MultiHead(**multihead_kwargs).to(DEVICE) 
-    teachers = MultiHead(**multihead_kwargs).to(DEVICE)
+    students = get_multihead(args, n_embed).to(DEVICE) 
+    teachers = get_multihead(args, n_embed).to(DEVICE)
     students.load_state_dict(teachers.state_dict())
 
     for param in teachers.parameters():
@@ -337,6 +330,10 @@ if __name__ == "__main__":
     parser.add_argument(
         '--loss_func', default="TEMI", type=str, choices=["TEMI", "WPMI", "StolenTEMILossAdapter"],
         help="Loss function name"
+    )
+    parser.add_argument(
+        '--head_arch', default="MultiHead", type=str, choices=["MultiHead", "StolenMultiHead"],
+        help="Multihead architecture"
     )
     main(parser.parse_args())
 
