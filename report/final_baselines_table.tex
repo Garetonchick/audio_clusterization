@@ -1,0 +1,45 @@
+\begin{tabular}{lllll}
+\toprule
+Encoder & Dimensionality reducer & Clustering method &   NMI    &    accuracy    \\
+\midrule
+BYOL-A & None & AgglomerativeClustering &  0.01 &      0.26 \\
+         &      & DBSCAN &  0.39 &      0.51 \\
+         &      & K-means &  \textbf{0.59} &      \textbf{0.62} \\
+         & PCA & AgglomerativeClustering &  0.01 &      0.26 \\
+         &      & DBSCAN &  0.54 &      0.53 \\
+         &      & K-means &  \textbf{0.59} &      \textbf{0.62} \\
+         & t-SNE & AgglomerativeClustering &  0.20 &      0.34 \\
+         &      & DBSCAN &  0.04 &      0.27 \\
+         &      & K-means &  0.50 &      0.48 \\
+\midrule
+Random BYOL-A & None & AgglomerativeClustering &  0.01 &      0.26 \\
+         &      & DBSCAN &  0.01 &      0.26 \\
+         &      & K-means &  0.56 &      0.58 \\
+         & PCA & AgglomerativeClustering &  0.01 &      0.26 \\
+         &      & DBSCAN &  0.45 &      0.50 \\
+         &      & K-means &  0.56 &      0.58 \\
+         & t-SNE & AgglomerativeClustering &  \textbf{0.59} &  \textbf{0.60} \\
+         &      & DBSCAN &  0.20 &      0.28 \\
+         &      & K-means &  0.48 &      0.32 \\
+\midrule
+PaSST & None & AgglomerativeClustering &  0.01 &      0.26 \\
+         &      & DBSCAN &  0.29 &      0.44 \\
+         &      & K-means &  0.58 &      0.58 \\
+         & PCA & AgglomerativeClustering &  0.01 &      0.26 \\
+         &      & DBSCAN &  0.51 &      0.53 \\
+         &      & K-means &  \textbf{0.61} &      \textbf{0.60} \\
+         & t-SNE & AgglomerativeClustering &  0.39 &      0.34 \\
+         &      & DBSCAN &  0.20 &      0.27 \\
+         &      & K-means &  \textbf{0.61} &      0.56 \\
+\midrule
+wav2vec2 & None & AgglomerativeClustering &  0.01 &      0.26 \\
+         &      & DBSCAN &  0.03 &      0.27 \\
+         &      & K-means &  0.31 &      \textbf{0.41} \\
+         & PCA & AgglomerativeClustering &  0.01 &      0.26 \\
+         &      & DBSCAN &  0.24 &      0.40 \\
+         &      & K-means &  0.31 &      \textbf{0.41} \\
+         & t-SNE & AgglomerativeClustering &  0.01 &      0.26 \\
+         &      & DBSCAN &  0.03 &      0.26 \\
+         &      & K-means &  \textbf{0.32} &      0.35 \\
+\bottomrule
+\end{tabular}
